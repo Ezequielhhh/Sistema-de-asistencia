@@ -1,49 +1,74 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sistema de Asistencia</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{font-family:'DM Sans',sans-serif}
 .tab-active{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white}
-.card{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.card-shadow{box-shadow:0 4px 20px rgba(99,102,241,0.15);}
+.status-present{background:linear-gradient(135deg,#10b981,#34d399);}
+.status-absent{background:linear-gradient(135deg,#ef4444,#f87171);}
+.status-justified{background:linear-gradient(135deg,#f59e0b,#fbbf24);}
+.input-focus:focus{box-shadow:0 0 0 3px rgba(99,102,241,0.2);}
+.btn-primary{background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);}
+.btn-primary:hover{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);}
+.progress-bar{background:linear-gradient(90deg,#10b981 0%,#34d399 100%);}
+@keyframes fadeIn {from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.animate-fade{animation:fadeIn 0.3s ease-out;}
 </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body class="h-full bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
 
-<div class="max-w-6xl mx-auto p-6">
+<div id="app" class="h-full overflow-auto max-w-6xl mx-auto p-6">
+<header class="bg-white/80 backdrop-blur-sm border-b border-indigo-100 sticky top-0 z-10 mb-6 p-4 rounded-xl">
+<h1 id="app-title" class="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Sistema de Asistencia</h1>
+</header>
 
-<h1 class="text-3xl font-bold mb-6 text-indigo-600">Sistema de Asistencia</h1>
-
+<!-- Tabs -->
 <div class="flex gap-2 mb-6">
-<button onclick="switchTab('courses')" id="tab-courses" class="tab-active px-4 py-2 rounded">Cursos</button>
-<button onclick="switchTab('students')" id="tab-students" class="px-4 py-2 rounded bg-white">Estudiantes</button>
-<button onclick="switchTab('attendance')" id="tab-attendance" class="px-4 py-2 rounded bg-white">Asistencia</button>
-<button onclick="switchTab('stats')" id="tab-stats" class="px-4 py-2 rounded bg-white">Estadísticas</button>
+<button onclick="switchTab('courses')" id="tab-courses" class="tab-active px-6 py-3 rounded-xl font-semibold transition-all duration-300">📚 Cursos</button>
+<button onclick="switchTab('students')" id="tab-students" class="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-indigo-100 transition-all duration-300">👥 Estudiantes</button>
+<button onclick="switchTab('attendance')" id="tab-attendance" class="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-indigo-100 transition-all duration-300">📋 Asistencia</button>
+<button onclick="switchTab('stats')" id="tab-stats" class="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-indigo-100 transition-all duration-300">📊 Estadísticas</button>
 </div>
 
+<!-- Content -->
 <div id="content"></div>
-
 </div>
+
+<!-- Modal Justificación -->
+<div id="modal-justification" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+<div class="bg-white rounded-3xl p-8 w-full max-w-md mx-4 card-shadow animate-fade">
+<h3 class="text-xl font-bold text-slate-800 mb-4">📝 Justificación de Ausencia</h3>
+<textarea id="justification-text" placeholder="Ingrese el motivo de la justificación..." class="w-full h-32 px-4 py-3 border-2 border-slate-200 rounded-xl input-focus resize-none mb-4"></textarea>
+<div class="flex gap-3">
+<button onclick="closeJustificationModal()" class="flex-1 px-4 py-3 border-2 border-slate-300 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-all">Cancelar</button>
+<button onclick="saveJustification()" class="flex-1 btn-primary px-4 py-3 text-white font-semibold rounded-xl transition-all">Guardar</button>
+</div>
+</div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-4 rounded-2xl shadow-xl animate-fade z-50"></div>
 
 <script>
+// Base de datos localStorage
+let db = JSON.parse(localStorage.getItem("asistencia_db")) || {courses:[], students:[], attendance:[]};
 
-let db = JSON.parse(localStorage.getItem("asistencia_db")) || {
-courses: [],
-students: [],
-attendance: []
-};
+function saveDB(){ localStorage.setItem("asistencia_db", JSON.stringify(db)); }
 
-function saveDB(){
-localStorage.setItem("asistencia_db", JSON.stringify(db));
-}
-
+// Tabs
 function switchTab(tab){
-document.querySelectorAll("button").forEach(b=>b.classList.remove("tab-active"));
+['courses','students','attendance','stats'].forEach(t=>{
+document.getElementById("tab-"+t).classList.remove("tab-active");
+document.getElementById("tab-"+t).classList.add("text-slate-600");
+});
 document.getElementById("tab-"+tab).classList.add("tab-active");
+document.getElementById("tab-"+tab).classList.remove("text-slate-600");
 
 if(tab==="courses") renderCourses();
 if(tab==="students") renderStudents();
@@ -51,139 +76,173 @@ if(tab==="attendance") renderAttendance();
 if(tab==="stats") renderStats();
 }
 
+// Render Cursos
 function renderCourses(){
 document.getElementById("content").innerHTML=`
-<div class="card bg-white p-4 rounded mb-4">
-<input id="courseName" placeholder="Nombre del curso" class="border p-2 mr-2">
-<input id="courseClasses" type="number" placeholder="Cantidad clases" class="border p-2 mr-2">
-<button onclick="addCourse()" class="bg-indigo-500 text-white px-3 py-2 rounded">Agregar</button>
+<div class="bg-white rounded-3xl card-shadow p-6 mb-6">
+<h2 class="text-lg font-semibold text-slate-800 mb-4">➕ Agregar Nuevo Curso</h2>
+<div class="flex gap-4">
+<input type="text" id="courseName" placeholder="Nombre del curso" class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl input-focus outline-none">
+<input type="number" id="courseClasses" placeholder="Cantidad de clases" min="1" class="w-48 px-4 py-3 border-2 border-slate-200 rounded-xl input-focus outline-none">
+<button onclick="addCourse()" class="btn-primary px-6 py-3 text-white font-semibold rounded-xl transition-all hover:scale-105">Agregar</button>
 </div>
+</div>
+<div id="courses-list" class="grid gap-4">
 ${db.courses.map(c=>`
-<div class="card bg-white p-4 rounded mb-2 flex justify-between">
-<div><b>${c.name}</b> (${c.classes} clases)</div>
-<button onclick="deleteCourse('${c.id}')" class="text-red-500">Eliminar</button>
+<div class="bg-white rounded-2xl card-shadow p-6 flex justify-between items-center">
+<div>
+<h3 class="text-lg font-bold text-slate-800">${c.name}</h3>
+<p class="text-slate-500">📖 ${c.classes} clases · 👥 ${db.students.filter(s=>s.courseId===c.id).length} estudiantes</p>
 </div>
-`).join("")}
+<button onclick="deleteCourse('${c.id}')" class="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-semibold hover:bg-red-200 transition-all">🗑️ Eliminar</button>
+</div>
+`).join('')}
+</div>
 `;
 }
 
 function addCourse(){
-let name=document.getElementById("courseName").value;
-let classes=document.getElementById("courseClasses").value;
-if(!name||!classes)return alert("Completar datos");
-db.courses.push({id:Date.now().toString(),name,classes});
-saveDB();
-renderCourses();
+let name=document.getElementById("courseName").value.trim();
+let classes=parseInt(document.getElementById("courseClasses").value);
+if(!name||!classes){showToast("Completar datos");return;}
+db.courses.push({id:Date.now().toString(), name, classes});
+saveDB(); renderCourses();
 }
 
 function deleteCourse(id){
 db.courses=db.courses.filter(c=>c.id!==id);
 db.students=db.students.filter(s=>s.courseId!==id);
 db.attendance=db.attendance.filter(a=>a.courseId!==id);
-saveDB();
-renderCourses();
+saveDB(); renderCourses();
 }
 
+// Render Estudiantes
 function renderStudents(){
 document.getElementById("content").innerHTML=`
-<div class="card bg-white p-4 rounded mb-4">
-<select id="studentCourse" class="border p-2 mr-2">
-<option value="">Curso</option>
+<div class="bg-white rounded-3xl card-shadow p-6 mb-6">
+<h2 class="text-lg font-semibold text-slate-800 mb-4">➕ Agregar Nuevo Estudiante</h2>
+<div class="flex gap-4">
+<select id="studentCourse" class="px-4 py-3 border-2 border-slate-200 rounded-xl input-focus">
+<option value="">Seleccionar curso</option>
 ${db.courses.map(c=>`<option value="${c.id}">${c.name}</option>`)}
 </select>
-<input id="studentName" placeholder="Nombre estudiante" class="border p-2 mr-2">
-<button onclick="addStudent()" class="bg-indigo-500 text-white px-3 py-2 rounded">Agregar</button>
+<input type="text" id="studentName" placeholder="Nombre del estudiante" class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl input-focus outline-none">
+<button onclick="addStudent()" class="btn-primary px-6 py-3 text-white font-semibold rounded-xl transition-all hover:scale-105">Agregar</button>
 </div>
+</div>
+<div id="students-list" class="grid gap-4">
 ${db.students.map(s=>{
 let course=db.courses.find(c=>c.id===s.courseId);
-return`
-<div class="card bg-white p-4 rounded mb-2 flex justify-between">
-<div>${s.name} - ${course?course.name:""}</div>
-<button onclick="deleteStudent('${s.id}')" class="text-red-500">Eliminar</button>
-</div>
-`
-}).join("")}
-`;
+return `<div class="bg-white rounded-2xl card-shadow p-6 flex justify-between items-center">
+<span class="font-medium text-slate-700">👤 ${s.name} (${course?course.name:"Curso desconocido"})</span>
+<button onclick="deleteStudent('${s.id}')" class="px-3 py-1 bg-red-100 text-red-600 rounded-lg font-semibold hover:bg-red-200 transition-all">🗑️</button>
+</div>`}).join('')}
+</div>`;
 }
 
 function addStudent(){
-let name=document.getElementById("studentName").value;
+let name=document.getElementById("studentName").value.trim();
 let courseId=document.getElementById("studentCourse").value;
-if(!name||!courseId)return alert("Completar datos");
+if(!name||!courseId){showToast("Completar datos");return;}
 db.students.push({id:Date.now().toString(),name,courseId});
-saveDB();
-renderStudents();
+saveDB(); renderStudents();
 }
 
 function deleteStudent(id){
 db.students=db.students.filter(s=>s.id!==id);
 db.attendance=db.attendance.filter(a=>a.studentId!==id);
-saveDB();
-renderStudents();
+saveDB(); renderStudents();
 }
 
+// Render Asistencia
 function renderAttendance(){
 document.getElementById("content").innerHTML=`
-<div class="card bg-white p-4 rounded mb-4">
-<select id="attCourse" onchange="loadAttendance()" class="border p-2 mr-2">
-<option value="">Curso</option>
+<div class="bg-white rounded-3xl card-shadow p-6 mb-6">
+<select id="attCourse" onchange="loadAttendance()" class="px-4 py-3 border-2 border-slate-200 rounded-xl input-focus">
+<option value="">Seleccionar curso</option>
 ${db.courses.map(c=>`<option value="${c.id}">${c.name}</option>`)}
 </select>
-<input type="date" id="attDate" class="border p-2">
+<input type="date" id="attDate" class="px-4 py-3 border-2 border-slate-200 rounded-xl input-focus ml-4">
 </div>
-<div id="attendanceList"></div>
-`;
+<div id="attendanceList" class="grid gap-4"></div>`;
 }
 
 function loadAttendance(){
 let courseId=document.getElementById("attCourse").value;
 let date=document.getElementById("attDate").value;
-if(!courseId||!date)return;
+if(!courseId||!date){document.getElementById("attendanceList").innerHTML="";return;}
 
 let students=db.students.filter(s=>s.courseId===courseId);
 
 document.getElementById("attendanceList").innerHTML=
 students.map(s=>{
-let record=db.attendance.find(a=>a.studentId===s.id && a.date===date);
-return`
-<div class="card bg-white p-4 rounded mb-2 flex justify-between">
-<div>${s.name}</div>
-<div>
-<button onclick="mark('${s.id}','${courseId}','${date}','present')" class="px-2 ${record?.status==='present'?'bg-green-500 text-white':''}">P</button>
-<button onclick="mark('${s.id}','${courseId}','${date}','absent')" class="px-2 ${record?.status==='absent'?'bg-red-500 text-white':''}">A</button>
-<button onclick="mark('${s.id}','${courseId}','${date}','justified')" class="px-2 ${record?.status==='justified'?'bg-yellow-500 text-white':''}">J</button>
+let record=db.attendance.find(a=>a.studentId===s.id&&a.date===date);
+let status=record?.status||"";
+return `
+<div class="bg-white rounded-2xl card-shadow p-6 flex justify-between items-center flex-wrap">
+<h3 class="text-lg font-bold text-slate-800">👤 ${s.name}</h3>
+<div class="flex gap-2 flex-wrap">
+<button onclick="mark('${s.id}','${courseId}','${date}','present')" class="px-4 py-2 rounded-xl font-semibold transition-all ${status==='present'?'status-present text-white':'bg-slate-100 text-slate-600 hover:bg-green-100'}">✓ Presente</button>
+<button onclick="mark('${s.id}','${courseId}','${date}','absent')" class="px-4 py-2 rounded-xl font-semibold transition-all ${status==='absent'?'status-absent text-white':'bg-slate-100 text-slate-600 hover:bg-red-100'}">✗ Ausente</button>
+<button onclick="openJustificationModal('${s.id}','${courseId}')" class="px-4 py-2 rounded-xl font-semibold transition-all ${status==='justified'?'status-justified text-white':'bg-slate-100 text-slate-600 hover:bg-amber-100'}">📝 Justificado</button>
 </div>
-</div>
-`
-}).join("");
+</div>`}).join("");
 }
 
-function mark(studentId,courseId,date,status){
+function mark(studentId,courseId,date,status,justification=""){
 let existing=db.attendance.find(a=>a.studentId===studentId&&a.date===date);
-if(existing){existing.status=status;}
-else{db.attendance.push({studentId,courseId,date,status});}
-saveDB();
-loadAttendance();
+if(existing){existing.status=status; existing.justification=justification;}
+else{db.attendance.push({studentId,courseId,date,status,justification});}
+saveDB(); loadAttendance();
 }
 
+// Justificación
+let currentJustification=null;
+function openJustificationModal(studentId,courseId){
+currentJustification={studentId,courseId};
+document.getElementById("justification-text").value="";
+document.getElementById("modal-justification").classList.remove("hidden");
+}
+function closeJustificationModal(){
+currentJustification=null;
+document.getElementById("modal-justification").classList.add("hidden");
+}
+function saveJustification(){
+let text=document.getElementById("justification-text").value.trim();
+if(!text){showToast("Ingrese justificación");return;}
+if(currentJustification){
+let date=document.getElementById("attDate").value;
+mark(currentJustification.studentId,currentJustification.courseId,date,'justified',text);
+}
+closeJustificationModal();
+}
+
+// Estadísticas
 function renderStats(){
-document.getElementById("content").innerHTML=`
-${db.students.map(s=>{
+document.getElementById("content").innerHTML=
+db.students.map(s=>{
 let records=db.attendance.filter(a=>a.studentId===s.id);
 let total=records.length;
 let present=records.filter(r=>r.status==="present"||r.status==="justified").length;
 let percent=total?Math.round((present/total)*100):0;
-return`
-<div class="card bg-white p-4 rounded mb-2">
+return `
+<div class="bg-white rounded-2xl card-shadow p-6 mb-2">
 <b>${s.name}</b> - ${percent}% asistencia
-</div>
-`
-}).join("")}
-`;
+</div>`;
+}).join("");
 }
 
-switchTab("courses");
+// Toast
+function showToast(msg){
+let t=document.getElementById("toast");
+t.textContent=msg;
+t.classList.remove("hidden");
+setTimeout(()=>t.classList.add("hidden"),3000);
+}
 
+// Inicializar
+switchTab("courses");
 </script>
+
 </body>
 </html>
