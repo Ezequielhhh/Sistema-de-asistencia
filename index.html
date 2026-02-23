@@ -1,12 +1,189 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Asistencia</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Asistencia</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{font-family:'DM Sans',sans-serif}
+.tab-active{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white}
+.card{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+</style>
 </head>
-<body>
-    <h1>Welcome to the Sistema de Asistencia</h1>
-    <p>This is the main page of the Sistema de Asistencia application.</p>
+<body class="bg-slate-100 min-h-screen">
+
+<div class="max-w-6xl mx-auto p-6">
+
+<h1 class="text-3xl font-bold mb-6 text-indigo-600">Sistema de Asistencia</h1>
+
+<div class="flex gap-2 mb-6">
+<button onclick="switchTab('courses')" id="tab-courses" class="tab-active px-4 py-2 rounded">Cursos</button>
+<button onclick="switchTab('students')" id="tab-students" class="px-4 py-2 rounded bg-white">Estudiantes</button>
+<button onclick="switchTab('attendance')" id="tab-attendance" class="px-4 py-2 rounded bg-white">Asistencia</button>
+<button onclick="switchTab('stats')" id="tab-stats" class="px-4 py-2 rounded bg-white">Estadísticas</button>
+</div>
+
+<div id="content"></div>
+
+</div>
+
+<script>
+
+let db = JSON.parse(localStorage.getItem("asistencia_db")) || {
+courses: [],
+students: [],
+attendance: []
+};
+
+function saveDB(){
+localStorage.setItem("asistencia_db", JSON.stringify(db));
+}
+
+function switchTab(tab){
+document.querySelectorAll("button").forEach(b=>b.classList.remove("tab-active"));
+document.getElementById("tab-"+tab).classList.add("tab-active");
+
+if(tab==="courses") renderCourses();
+if(tab==="students") renderStudents();
+if(tab==="attendance") renderAttendance();
+if(tab==="stats") renderStats();
+}
+
+function renderCourses(){
+document.getElementById("content").innerHTML=`
+<div class="card bg-white p-4 rounded mb-4">
+<input id="courseName" placeholder="Nombre del curso" class="border p-2 mr-2">
+<input id="courseClasses" type="number" placeholder="Cantidad clases" class="border p-2 mr-2">
+<button onclick="addCourse()" class="bg-indigo-500 text-white px-3 py-2 rounded">Agregar</button>
+</div>
+${db.courses.map(c=>`
+<div class="card bg-white p-4 rounded mb-2 flex justify-between">
+<div><b>${c.name}</b> (${c.classes} clases)</div>
+<button onclick="deleteCourse('${c.id}')" class="text-red-500">Eliminar</button>
+</div>
+`).join("")}
+`;
+}
+
+function addCourse(){
+let name=document.getElementById("courseName").value;
+let classes=document.getElementById("courseClasses").value;
+if(!name||!classes)return alert("Completar datos");
+db.courses.push({id:Date.now().toString(),name,classes});
+saveDB();
+renderCourses();
+}
+
+function deleteCourse(id){
+db.courses=db.courses.filter(c=>c.id!==id);
+db.students=db.students.filter(s=>s.courseId!==id);
+db.attendance=db.attendance.filter(a=>a.courseId!==id);
+saveDB();
+renderCourses();
+}
+
+function renderStudents(){
+document.getElementById("content").innerHTML=`
+<div class="card bg-white p-4 rounded mb-4">
+<select id="studentCourse" class="border p-2 mr-2">
+<option value="">Curso</option>
+${db.courses.map(c=>`<option value="${c.id}">${c.name}</option>`)}
+</select>
+<input id="studentName" placeholder="Nombre estudiante" class="border p-2 mr-2">
+<button onclick="addStudent()" class="bg-indigo-500 text-white px-3 py-2 rounded">Agregar</button>
+</div>
+${db.students.map(s=>{
+let course=db.courses.find(c=>c.id===s.courseId);
+return`
+<div class="card bg-white p-4 rounded mb-2 flex justify-between">
+<div>${s.name} - ${course?course.name:""}</div>
+<button onclick="deleteStudent('${s.id}')" class="text-red-500">Eliminar</button>
+</div>
+`
+}).join("")}
+`;
+}
+
+function addStudent(){
+let name=document.getElementById("studentName").value;
+let courseId=document.getElementById("studentCourse").value;
+if(!name||!courseId)return alert("Completar datos");
+db.students.push({id:Date.now().toString(),name,courseId});
+saveDB();
+renderStudents();
+}
+
+function deleteStudent(id){
+db.students=db.students.filter(s=>s.id!==id);
+db.attendance=db.attendance.filter(a=>a.studentId!==id);
+saveDB();
+renderStudents();
+}
+
+function renderAttendance(){
+document.getElementById("content").innerHTML=`
+<div class="card bg-white p-4 rounded mb-4">
+<select id="attCourse" onchange="loadAttendance()" class="border p-2 mr-2">
+<option value="">Curso</option>
+${db.courses.map(c=>`<option value="${c.id}">${c.name}</option>`)}
+</select>
+<input type="date" id="attDate" class="border p-2">
+</div>
+<div id="attendanceList"></div>
+`;
+}
+
+function loadAttendance(){
+let courseId=document.getElementById("attCourse").value;
+let date=document.getElementById("attDate").value;
+if(!courseId||!date)return;
+
+let students=db.students.filter(s=>s.courseId===courseId);
+
+document.getElementById("attendanceList").innerHTML=
+students.map(s=>{
+let record=db.attendance.find(a=>a.studentId===s.id && a.date===date);
+return`
+<div class="card bg-white p-4 rounded mb-2 flex justify-between">
+<div>${s.name}</div>
+<div>
+<button onclick="mark('${s.id}','${courseId}','${date}','present')" class="px-2 ${record?.status==='present'?'bg-green-500 text-white':''}">P</button>
+<button onclick="mark('${s.id}','${courseId}','${date}','absent')" class="px-2 ${record?.status==='absent'?'bg-red-500 text-white':''}">A</button>
+<button onclick="mark('${s.id}','${courseId}','${date}','justified')" class="px-2 ${record?.status==='justified'?'bg-yellow-500 text-white':''}">J</button>
+</div>
+</div>
+`
+}).join("");
+}
+
+function mark(studentId,courseId,date,status){
+let existing=db.attendance.find(a=>a.studentId===studentId&&a.date===date);
+if(existing){existing.status=status;}
+else{db.attendance.push({studentId,courseId,date,status});}
+saveDB();
+loadAttendance();
+}
+
+function renderStats(){
+document.getElementById("content").innerHTML=`
+${db.students.map(s=>{
+let records=db.attendance.filter(a=>a.studentId===s.id);
+let total=records.length;
+let present=records.filter(r=>r.status==="present"||r.status==="justified").length;
+let percent=total?Math.round((present/total)*100):0;
+return`
+<div class="card bg-white p-4 rounded mb-2">
+<b>${s.name}</b> - ${percent}% asistencia
+</div>
+`
+}).join("")}
+`;
+}
+
+switchTab("courses");
+
+</script>
 </body>
 </html>
